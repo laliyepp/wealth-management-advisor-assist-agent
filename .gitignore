@@ -6,3 +6,10 @@ __pycache__/
 
 # VS Code
 .vscode/
+.env.example
+
+# DB
+agent.db
+
+# Notebook
+notebooks/
