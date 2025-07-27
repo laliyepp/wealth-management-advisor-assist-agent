@@ -4,177 +4,180 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-This is a wealth management advisor assistant agent built with Python. The project implements a conversational AI agent that can interact with users about financial topics using multi-provider LLM integration. It supports OpenAI, Anthropic, and OpenRouter APIs with intelligent fallback mechanisms and configurable model selection.
+This is a wealth management advisor assistant agent built with Python using the ReAct (Reasoning-Action-Observation) framework. The project implements a sophisticated AI agent that can interact with users about financial topics using knowledge base search, structured reasoning, and tool usage. It's built on the OpenAI Agent SDK with Weaviate vector database integration and Langfuse observability.
 
 ## Commands
 
 ### Running the Application
+
+#### CLI Mode (Interactive Command Line)
 ```bash
-python src/main.py
+python -m src.main cli
+# or simply
+python -m src.main
 ```
 
-### Testing
+#### Web Interface (Gradio)
 ```bash
-pytest tests/
+python -m src.main gradio
 ```
 
-### Dependencies
+#### Knowledge Base Search Demo
 ```bash
-pip install -r requirements.txt
+python -m src.main search
+```
+
+#### Help
+```bash
+python -m src.main help
+```
+
+### Environment Setup
+```bash
+# Using uv (recommended)
+uv venv
+uv sync
+
+# Traditional approach
+pip install -e .
+```
+
+### Development Tools
+```bash
+# Code formatting and linting
+uv run ruff format .
+uv run ruff check .
+
+# Testing
+uv run pytest tests/
+
+# Documentation
+uv run mkdocs serve
 ```
 
 ## Architecture
 
 ### Core Components
 
-- **Agent System**: Modular agent architecture with base classes and implementations
-  - `src/agent/base.py`: Abstract base classes for agents, messages, and responses with LLM provider interface
-  - `src/agent/simple_agent.py`: Main agent implementation with multi-provider LLM support and fallback logic
-  - `src/agent/llm_providers.py`: LLM provider abstraction layer with concrete implementations for OpenAI, Anthropic, and OpenRouter
+- **ReAct Framework**: Reasoning-Action-Observation agent architecture
+  - `src/react/agent.py`: ReAct agent implementation using OpenAI Agent SDK
+  - `src/react/runner.py`: Agent execution and interaction management
+  - `src/react/tools/`: Tool registry and implementations
   
-- **Configuration Management**: Settings handled via Pydantic with environment variable support
-  - `src/config/settings.py`: Application settings with multi-provider API key management and model configuration
-  - Supports `.env` file for configuration
-  - Provider selection and fallback chain configuration
+- **Knowledge Base Integration**: Vector database for knowledge retrieval
+  - Weaviate vector database for semantic search
+  - `src/utils/tools/kb_weaviate.py`: Weaviate knowledge base client
+  - Collection: `enwiki_20250520` (Wikipedia knowledge base)
   
-- **Database Layer**: SQLAlchemy-based data persistence
-  - `src/data/database.py`: Database manager with session handling, backup, and utility methods
-  - `src/data/models.py`: Database models for conversation history storage
-  - Default: SQLite database (`agent.db`)
+- **Utilities Framework**: Comprehensive utility ecosystem from agent-bootcamp
+  - `src/utils/`: Complete utilities package with async support, logging, environment configuration
+  - `src/utils/async_utils.py`: Rate limiting and progress tracking
+  - `src/utils/env_vars.py`: Pydantic-based environment configuration
+  - `src/utils/langfuse/`: Observability and tracing integration
+  - `src/utils/gradio/`: Web interface utilities
+
+- **Interface Options**: Multiple interaction modes
+  - CLI: Interactive command-line interface with ReAct reasoning display
+  - Gradio: Web-based chat interface with streaming responses
+  - Search Demo: Simple knowledge base search with JSON output (like agent-bootcamp)
+  - `src/gradio_ui.py`: Web interface implementation
+  - `src/search_demo.py`: Knowledge base search demo
 
 ### Key Features
 
-- **Multi-Provider LLM Integration**: Supports OpenAI, Anthropic, and OpenRouter APIs with configurable models
-- **Intelligent Fallback System**: Primary provider with configurable fallback chain for resilience
-- **Model Flexibility**: Different models per provider (e.g., DeepSeek via OpenRouter, Claude via Anthropic)
-- **Conversation History**: Persistent storage of user interactions
-- **Interactive CLI**: Command-line interface with help system
-- **Database Management**: Full CRUD operations with backup capabilities
-- **Modular Design**: Extensible agent system and provider architecture for adding new capabilities
+- **ReAct Framework**: Structured reasoning with explicit action planning and observation
+- **Knowledge Base Search**: Semantic search through Weaviate vector database
+- **Observability**: Full tracing and monitoring via Langfuse integration
+- **Multi-Interface Support**: CLI and web interfaces for different use cases
+- **Streaming Responses**: Real-time response generation with intermediate step display
+- **Modern Python Stack**: Python 3.12, uv for dependency management, ruff for code quality
+
+### Technology Stack
+
+#### Core Dependencies
+- **OpenAI Agent SDK**: Agent framework and tool integration
+- **Weaviate**: Vector database for knowledge retrieval
+- **Gradio**: Web interface for interactive chat
+- **Langfuse**: Observability and tracing
+- **Rich**: Enhanced terminal output and progress bars
+
+#### Development Stack
+- **Python 3.12**: Modern Python with pyenv version management
+- **uv**: Fast Python package installer and resolver
+- **ruff**: Python linter and formatter
+- **pytest**: Testing framework with async support
+- **mkdocs**: Documentation generation
 
 ### Configuration
 
-#### LLM Provider Configuration
-The system supports multiple LLM providers with fallback mechanisms:
+#### Environment Variables (from .env)
+```bash
+# OpenAI-compatible LLM
+OPENAI_BASE_URL="https://generativelanguage.googleapis.com/v1beta/openai/"
+OPENAI_API_KEY="..."
 
-**API Keys** (all optional):
-- `OPENAI_API_KEY`: OpenAI API access
-- `ANTHROPIC_API_KEY`: Anthropic Claude API access  
-- `OPENROUTER_API_KEY`: OpenRouter API access (supports hundreds of models)
+# Embedding model
+EMBEDDING_MODEL_NAME="@cf/baai/bge-m3"
+EMBEDDING_BASE_URL="https://api.cloudflare.com/client/v4/accounts/.../ai/v1"
+EMBEDDING_API_KEY="..."
 
-**Provider Selection**:
-- `LLM_PROVIDER`: Primary provider (`openai`, `anthropic`, `openrouter`) - defaults to `openrouter`
-- `FALLBACK_PROVIDERS`: Comma-separated fallback providers - defaults to `openai`
+# Langfuse Observability
+LANGFUSE_SECRET_KEY="sk-lf-..."
+LANGFUSE_PUBLIC_KEY="pk-lf-..."
+LANGFUSE_HOST="https://us.cloud.langfuse.com"
 
-**Model Configuration**:
-- `OPENAI_MODEL`: OpenAI model - defaults to `gpt-3.5-turbo`
-- `ANTHROPIC_MODEL`: Anthropic model - defaults to `claude-3-sonnet-20240229`
-- `OPENROUTER_MODEL`: OpenRouter model - defaults to `deepseek/deepseek-chat-v3-0324:free`
+# Weaviate Vector Database
+WEAVIATE_HTTP_HOST="...weaviate.cloud"
+WEAVIATE_GRPC_HOST="grpc-...weaviate.cloud"
+WEAVIATE_API_KEY="..."
+WEAVIATE_HTTP_PORT="443"
+WEAVIATE_GRPC_PORT="443"
+WEAVIATE_HTTP_SECURE="true"
+WEAVIATE_GRPC_SECURE="true"
+```
 
-**General Settings**:
-- `TEMPERATURE`: Model temperature (0.0-1.0) - defaults to `0.7`
-- `MAX_TOKENS`: Maximum response tokens - defaults to `2048`
-- `DATABASE_URL`: Database connection string - defaults to SQLite
-
-#### Provider Architecture
-- **BaseLLMProvider**: Abstract interface for all LLM providers
-- **OpenAIProvider**: Direct OpenAI API integration
-- **AnthropicProvider**: Anthropic Claude API integration
-- **OpenRouterProvider**: OpenRouter API integration (supports 100+ models)
-- **LLMProviderFactory**: Factory pattern for provider instantiation
-- **Fallback Logic**: Automatic failover when primary provider fails
+#### Agent Configuration
+- **Model**: `gemini-2.5-flash` (via OpenAI-compatible API)
+- **Instructions**: ReAct framework with knowledge search emphasis
+- **Tools**: Weaviate knowledge base search, news events (extensible)
+- **Tracing**: Disabled by default for performance (can be enabled)
 
 ### Entry Points
 
-- `src/main.py`: Main application entry point with async CLI loop
-- Interactive commands: `help`, `quit`/`exit`/`q`
-- Database initialization happens automatically on startup
-- Provider initialization with fallback chain setup occurs during agent creation
+- `src/main.py`: Main application with CLI/Gradio mode selection
+- `src/gradio_ui.py`: Standalone Gradio web interface
+- `src/react/`: ReAct framework implementation
 
-## Multi-Agent System Expansion Plan
+### Development Workflow
 
-### Overview
-Evolution from single-agent to multi-agent system where a master agent orchestrates specialized sub-agents for different tasks.
+1. **Environment Setup**: Use pyenv for Python 3.12, uv for dependencies
+2. **Code Quality**: ruff for formatting and linting (configured in pyproject.toml)
+3. **Testing**: pytest with async support for agent interactions
+4. **Documentation**: mkdocs for project documentation
+5. **Observability**: Langfuse integration for production monitoring
 
-### High-Level Architecture
-
-#### Current State
-- Single `SimpleAgent` processes all user requests directly
-- Existing `BaseAgent` provides solid foundation for expansion
-
-#### Target Architecture
-**Master Agent (Orchestrator)**
-- Inherits from existing `BaseAgent`
-- Receives user requests and routes to appropriate sub-agents
-- Aggregates responses from multiple sub-agents
-- Maintains conversation context across agent interactions
-
-**Agent Registry**
-- Central registry tracking available sub-agents
-- Maps agent capabilities to specific domains/tasks
-- Handles agent discovery and instantiation
-
-**Sub-Agent Framework**
-- All sub-agents inherit from `BaseAgent` (reusing existing infrastructure)
-- Each sub-agent declares its capabilities/domains
-- Sub-agents can be invoked independently or in combination
-
-**Task Routing System**
-- Master agent analyzes incoming requests
-- Routes tasks to appropriate sub-agent(s) based on content/intent
-- Handles multi-agent workflows when tasks require multiple agents
-
-#### Architecture Flow
+### Project Structure
 ```
-User → MasterAgent → AgentRegistry → SubAgent → Response → MasterAgent → User
+├── .python-version          # Python 3.12.3
+├── pyproject.toml          # Project configuration and dependencies
+├── uv.lock                 # Locked dependencies
+├── .env                    # Environment configuration
+├── src/
+│   ├── utils/              # Agent-bootcamp utilities
+│   │   ├── async_utils.py
+│   │   ├── env_vars.py
+│   │   ├── langfuse/       # Observability
+│   │   ├── gradio/         # Web interface utilities
+│   │   └── tools/          # Knowledge base and tools
+│   ├── prompts.py          # ReAct instructions
+│   ├── react/              # ReAct framework
+│   │   ├── agent.py        # Agent implementation
+│   │   ├── runner.py       # Execution management
+│   │   └── tools/          # Tool registry
+│   ├── gradio_ui.py        # Web interface
+│   └── main.py             # Application entry point
+├── tests/                  # Test suite
+└── docs/                   # Documentation
 ```
 
-### Implementation Plan
-
-#### Phase 1: Core Multi-Agent Infrastructure
-1. **Create Agent Registry**
-   - `AgentRegistry` class to track available sub-agents
-   - Agent capability mapping (what each agent can handle)
-   - Agent factory for instantiation
-
-2. **Build Master Agent**
-   - `MasterAgent` class extending `BaseAgent`
-   - Task routing logic to determine which sub-agent to use
-   - Result aggregation from multiple sub-agents
-
-3. **Extend Base Agent**
-   - Add agent capability declaration
-   - Add agent registration mechanism
-   - Maintain existing LLM provider integration
-
-4. **Update Main Entry Point**
-   - Replace `SimpleAgent` with `MasterAgent`
-   - Initialize agent registry and register sub-agents
-   - Keep existing CLI interface
-
-### Design Patterns & Best Practices
-
-#### Industry References
-- **Microsoft AutoGen Framework**: Orchestrator pattern with specialized agents
-- **LangChain Multi-Agent Systems**: Agent composition with central coordinator
-- **CrewAI Framework**: Master-worker pattern for collaborative AI systems
-- **Enterprise Service Mesh**: Similar to Kubernetes microservices management
-
-#### Real-World Applications
-- **Goldman Sachs**: Multi-agent trading strategy systems
-- **BlackRock**: Agent-based portfolio management
-- **Robinhood**: Multi-agent fraud detection and compliance
-- **Wealthfront**: Automated financial planning with specialized agents
-
-#### Key Benefits
-1. **Separation of Concerns**: Each agent has single responsibility
-2. **Scalability**: Easy to add new specialized agents
-3. **Maintainability**: Changes to one agent don't affect others
-4. **Testability**: Each agent can be tested independently
-5. **Modularity**: Agents can be developed by different teams
-
-### Implementation Notes
-- Maintains existing code structure through composition rather than major refactoring
-- Preserves all current LLM provider integration and fallback mechanisms
-- Keeps existing CLI interface and user experience
-- Builds upon proven architectural patterns used in production financial AI systems
+This architecture provides a modern, scalable foundation for building sophisticated financial advisory agents with structured reasoning, knowledge retrieval, and comprehensive observability.
