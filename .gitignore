@@ -13,3 +13,11 @@ agent.db
 
 # Notebook
 notebooks/
+
+# claude
+.claude/
+CLAUDE.md
+
+# custom
+BUILD_AGENDA.md
+

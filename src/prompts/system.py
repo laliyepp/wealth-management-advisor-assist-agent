@@ -1,4 +1,4 @@
-"""Centralized location for all system prompts."""
+"""System prompts for the ReAct agent."""
 
 REACT_INSTRUCTIONS = """\
 Answer the question using the search tool. \

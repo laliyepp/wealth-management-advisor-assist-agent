@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from gradio.components.chatbot import ChatMessage
 from openai import AsyncOpenAI
 
-from .prompts import REACT_INSTRUCTIONS
+from .prompts.system import REACT_INSTRUCTIONS
 from .utils import (
     AsyncWeaviateKnowledgeBase,
     Configs,
