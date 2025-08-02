@@ -15,8 +15,8 @@ agent.db
 notebooks/
 
 # claude
-.claude/
-CLAUDE.md
+# .claude/
+# CLAUDE.md
 
 # custom
 BUILD_AGENDA.md
