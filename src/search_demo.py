@@ -9,6 +9,7 @@ from .utils import (
     Configs,
     get_weaviate_async_client,
     pretty_print,
+    setup_langfuse_tracer,
 )
 
 
@@ -31,6 +32,9 @@ public dataset.
 
 
 load_dotenv(verbose=True)
+
+# Set up Langfuse tracing for search demo
+setup_langfuse_tracer("wealth-management-search")
 
 configs = Configs.from_env_var()
 async_weaviate_client = get_weaviate_async_client(

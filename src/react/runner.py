@@ -12,7 +12,7 @@ from ..utils import pretty_print
 class ReactRunner:
     """Runner for executing ReAct agent interactions."""
     
-    def __init__(self, tracing_disabled: bool = True):
+    def __init__(self, tracing_disabled: bool = False):
         """Initialize the ReAct runner.
         
         Args:

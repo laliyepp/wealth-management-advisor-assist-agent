@@ -20,6 +20,7 @@ from .utils import (
     oai_agent_items_to_gradio_messages,
     oai_agent_stream_to_gradio_messages,
     pretty_print,
+    setup_langfuse_tracer,
 )
 
 
@@ -124,7 +125,9 @@ def launch_gradio_app(
     )
 
     async_openai_client = AsyncOpenAI()
-    agents.set_tracing_disabled(disabled=True)
+    # Set up Langfuse tracing with full instrumentation
+    setup_langfuse_tracer("wealth-management-gradio")
+    agents.set_tracing_disabled(disabled=False)
 
     signal.signal(signal.SIGINT, _handle_sigint)
 

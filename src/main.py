@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 
 from .react.agent import ReactAgentManager
 from .react.runner import ReactRunner
-from .utils import set_up_logging
+from .utils import set_up_logging, setup_langfuse_tracer
 
 
 load_dotenv(verbose=True)
@@ -28,6 +28,9 @@ async def main_cli():
     # Set up logging
     set_up_logging()
     
+    # Set up Langfuse tracing with full instrumentation
+    setup_langfuse_tracer("wealth-management-cli")
+    
     try:
         # Initialize the ReAct agent
         agent_manager = ReactAgentManager()
@@ -35,7 +38,7 @@ async def main_cli():
         print("ReAct agent initialized successfully")
         
         # Create runner
-        runner = ReactRunner(tracing_disabled=True)
+        runner = ReactRunner(tracing_disabled=False)
         
         # Run interactive session
         await runner.run_interactive_session(
