@@ -45,7 +45,7 @@ async_weaviate_client = get_weaviate_async_client(
 async_openai_client = AsyncOpenAI()
 async_knowledgebase = AsyncWeaviateKnowledgeBase(
     async_weaviate_client,
-    collection_name="enwiki_20250520",
+    collection_name="rbc_2_cra_public_documents",
 )
 
 
@@ -121,7 +121,7 @@ def launch_gradio_app(
     )
     async_knowledgebase = AsyncWeaviateKnowledgeBase(
         async_weaviate_client,
-        collection_name="enwiki_20250520",
+        collection_name="rbc_2_cra_public_documents",
     )
 
     async_openai_client = AsyncOpenAI()

@@ -41,7 +41,7 @@ async def create_react_agent(
     
     async_weaviate_kb = AsyncWeaviateKnowledgeBase(
         async_weaviate_client,
-        collection_name="enwiki_20250520",
+        collection_name="rbc_2_cra_public_documents",
     )
     
     # Set up OpenAI client

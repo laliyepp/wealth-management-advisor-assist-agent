@@ -45,7 +45,7 @@ async def weaviate_kb(
     )
 
     yield AsyncWeaviateKnowledgeBase(
-        async_client=async_client, collection_name="enwiki_20250520"
+        async_client=async_client, collection_name="rbc_2_cra_public_documents"
     )
 
     await async_client.close()
