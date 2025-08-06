@@ -25,6 +25,7 @@ from .utils import (
     pretty_print,
     setup_langfuse_tracer,
 )
+from .utils.tools.cp_db import client_db
 
 
 load_dotenv(verbose=True)
@@ -54,6 +55,14 @@ async_knowledgebase = AsyncWeaviateKnowledgeBase(
 
 # Initialize reference generation agent
 reference_agent = ReferenceGenerationAgent()
+
+# Load client profile database
+CLIENT_PROFILE_DATA_PATH = os.getenv(
+    "CLIENT_PROFILE_DATA_PATH",
+    "data/profile/client_profile.jsonl"
+)
+client_db.load_from_jsonl(CLIENT_PROFILE_DATA_PATH)
+logging.info(f"Loaded {client_db.count()} client profiles from {CLIENT_PROFILE_DATA_PATH}")
 
 
 async def _cleanup_clients() -> None:
@@ -304,6 +313,14 @@ def launch_gradio_app(
     
     # Reinitialize reference generation agent
     reference_agent = ReferenceGenerationAgent()
+    
+    # Reload client profile database
+    CLIENT_PROFILE_DATA_PATH = os.getenv(
+        "CLIENT_PROFILE_DATA_PATH", 
+        "data/profile/client_profile.jsonl"
+    )
+    client_db.load_from_jsonl(CLIENT_PROFILE_DATA_PATH)
+    logging.info(f"Reloaded {client_db.count()} client profiles from {CLIENT_PROFILE_DATA_PATH}")
     
     # Set up Langfuse tracing with full instrumentation
     setup_langfuse_tracer("wealth-management-gradio")

@@ -105,12 +105,12 @@ class ClientProfileDB:
         except Exception as e:
             logger.error(f"Error loading client profiles: {e}")
 
-    def get_profile_by_name(self, client_name: str) -> Optional[ClientProfile]:
+    def get_profile_by_first_name(self, client_first_name: str) -> Optional[ClientProfile]:
         """
-        Extract client profile information using a given client name.
+        Extract client profile information using a given client first name.
         
         Args:
-            client_name: Full name or partial name of the client (case-insensitive)
+            client_first_name: First name or partial name of the client (case-insensitive)
             
         Returns:
             ClientProfile if found, None otherwise
@@ -120,7 +120,7 @@ class ClientProfileDB:
             return None
         
         # Normalize the search name
-        search_name = client_name.strip().lower()
+        search_name = client_first_name.strip().lower()
         
         # Direct match first
         if search_name in self.profiles:
@@ -169,7 +169,7 @@ def get_client_profile(client_first_name: str) -> Optional[Dict[str, Any]]:
     Tool function to extract client profile information using a given client name.
     
     Args:
-        client_name: The name of the client to search for
+        client_first_name: The name of the client to search for
         
     Returns:
         Dictionary containing client profile data if found, None otherwise
