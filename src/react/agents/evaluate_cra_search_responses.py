@@ -38,6 +38,7 @@ Given the question, the assistant's answer, and a set of CRA documents retrieved
 - Check if the answer is factually supported by one or more of these documents and retreive document titles.
 - Check if the assistant cites specific documents or sections correctly.
 - Detect any hallucinated or unsupported claims.
+- Rate confidence (0-5) in grounding.
 
 Return a JSON object with:
 {
@@ -45,7 +46,7 @@ Return a JSON object with:
   "hallucinated": true|false,
   "cited_documents": [...],
   "explanation": "...",
-  "confidence_score": <1‑5>,
+  "confidence_score": <0‑5>,
   "final_judgment": "Valid"|"Partially Valid"|"Invalid"
 }
 """
