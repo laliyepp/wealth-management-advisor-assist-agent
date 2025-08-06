@@ -15,7 +15,7 @@ from gradio.components.chatbot import ChatMessage
 from openai import AsyncOpenAI
 
 from .prompts.system import REACT_INSTRUCTIONS
-from .react.agents import ReferenceGenerationAgent
+from .react.agents.meeting_intelligence.reference_generation import ReferenceGenerationAgent
 from .utils import (
     AsyncWeaviateKnowledgeBase,
     Configs,
@@ -53,11 +53,7 @@ async_knowledgebase = AsyncWeaviateKnowledgeBase(
 )
 
 # Initialize reference generation agent
-reference_agent = ReferenceGenerationAgent(
-    cra_kb=async_knowledgebase,
-    llm_client=async_openai_client,
-    model=AGENT_LLM_NAME
-)
+reference_agent = ReferenceGenerationAgent()
 
 
 async def _cleanup_clients() -> None:
@@ -99,6 +95,10 @@ async def generate_reference(client_situation: str, progress=gr.Progress()):
     if len(client_situation) > 5000:
         return "Client situation description is too long (max 5000 characters).", "{}", "{}", "", "", "", ""
     
+    # Initialize agent if not done already
+    if not reference_agent.initialized:
+        await reference_agent.initialize()
+    
     progress(0.2, desc="Generating search terms...")
     
     try:
@@ -107,12 +107,13 @@ async def generate_reference(client_situation: str, progress=gr.Progress()):
         
         progress(0.5, desc="Processing search results...")
         
-        # Format raw CRA results - show more content
+        # Format raw CRA results - now from parallel searches
         cra_raw = []
-        for i, result in enumerate(research_data.get("cra_results", [])[:10], 1):
-            text = result.highlight.text[0] if result.highlight.text else ""
-            # Show more of each result (up to 1000 chars)
-            cra_raw.append(f"=== Result {i} ===\n{text[:1000]}")
+        for search_result in research_data.get("cra_results", []):
+            query = search_result.get("query", "Unknown query")
+            result = search_result.get("result", "No result")
+            # Show full results instead of truncating to 1000 chars
+            cra_raw.append(f"=== Search: '{query}' ===\n{result}")
         cra_raw_text = "\n\n".join(cra_raw) if cra_raw else "No CRA results found"
         
         # Get web results
@@ -150,7 +151,7 @@ async def generate_reference(client_situation: str, progress=gr.Progress()):
         
         # Get search terms used
         cra_keywords = research_data.get("cra_keywords", "")
-        web_query = research_data.get("web_query", "")
+        web_query = research_data.get("web_query", "No web query generated")
         
         # Return all data including raw results and search terms
         return summary, json.dumps(reference_data, indent=2), json.dumps(reference_data.get("current_numbers", {}), indent=2), cra_raw_text, web_raw_text, cra_keywords, web_query
@@ -302,11 +303,7 @@ def launch_gradio_app(
     async_openai_client = AsyncOpenAI()
     
     # Reinitialize reference generation agent
-    reference_agent = ReferenceGenerationAgent(
-        cra_kb=async_knowledgebase,
-        llm_client=async_openai_client,
-        model=AGENT_LLM_NAME
-    )
+    reference_agent = ReferenceGenerationAgent()
     
     # Set up Langfuse tracing with full instrumentation
     setup_langfuse_tracer("wealth-management-gradio")

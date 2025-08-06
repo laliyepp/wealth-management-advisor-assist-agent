@@ -20,6 +20,26 @@ load_dotenv(verbose=True)
 AGENT_LLM_NAME = "gemini-2.5-flash"
 
 
+async def create_web_search_agent(
+    name: str = "Web Search Agent",
+) -> Agent:
+    """Create a web search agent with no tools (uses built-in web search)."""
+    async_openai_client = AsyncOpenAI()
+    
+    # Create agent with NO tools - uses built-in web search capabilities
+    agent = Agent(
+        name=name,
+        instructions="Search the web for current information. Always search the web when asked and provide sources with URLs when possible.",
+        tools=[],  # NO tools - enables built-in web search
+        model=OpenAIChatCompletionsModel(
+            model=AGENT_LLM_NAME, 
+            openai_client=async_openai_client
+        ),
+    )
+    
+    return agent
+
+
 async def create_react_agent(
     name: str = "ReAct Agent",
     instructions: str = REACT_INSTRUCTIONS,
@@ -69,8 +89,8 @@ async def create_react_agent(
     return agent
 
 
-class ReactAgentManager:
-    """Manager for ReAct agent lifecycle and resources."""
+class AgentManager:
+    """Manager for agent lifecycle and resources."""
     
     def __init__(self):
         self.agent = None
@@ -78,17 +98,28 @@ class ReactAgentManager:
         self.openai_client = None
         self.initialized = False
     
-    async def initialize(self, agent_name: str = "ReAct Agent") -> None:
-        """Initialize the ReAct agent and its resources."""
+    async def initialize(self, agent_name: str = "ReAct Agent", agent_type: str = "react") -> None:
+        """Initialize an agent of the specified type.
+        
+        Args:
+            agent_name: Name for the agent
+            agent_type: Type of agent ("react" or "web_search")
+        """
         if self.initialized:
             return
             
         try:
-            self.agent = await create_react_agent(name=agent_name)
+            if agent_type == "react":
+                self.agent = await create_react_agent(name=agent_name)
+            elif agent_type == "web_search":
+                self.agent = await create_web_search_agent(name=agent_name)
+            else:
+                raise ValueError(f"Unknown agent type: {agent_type}")
+                
             self.initialized = True
-            logging.info(f"ReAct agent '{agent_name}' initialized successfully")
+            logging.info(f"{agent_type.title()} agent '{agent_name}' initialized successfully")
         except Exception as e:
-            logging.error(f"Failed to initialize ReAct agent: {e}")
+            logging.error(f"Failed to initialize {agent_type} agent: {e}")
             raise
     
     async def cleanup(self) -> None:

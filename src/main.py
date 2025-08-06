@@ -12,7 +12,7 @@ import sys
 
 from dotenv import load_dotenv
 
-from .react.agent import ReactAgentManager
+from .react.agent import AgentManager
 from .react.runner import ReactRunner
 from .utils import set_up_logging, setup_langfuse_tracer
 
@@ -33,7 +33,7 @@ async def main_cli():
     
     try:
         # Initialize the ReAct agent
-        agent_manager = ReactAgentManager()
+        agent_manager = AgentManager()
         await agent_manager.initialize("Wikipedia Search Agent")
         print("ReAct agent initialized successfully")
         
