@@ -63,7 +63,7 @@ def main_gradio():
     """Launch the Gradio web interface."""
     from .gradio_ui import launch_gradio_app
     
-    print("Starting Wealth Management ReAct Agent Web Interface...")
+    print("Starting Wealth Management Agent Web Interface...")
     launch_gradio_app()
 
 
