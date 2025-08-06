@@ -130,7 +130,7 @@ async def main():
     cra_kb = AsyncWeaviateKnowledgeBase(async_weaviate_client, collection_name="rbc_2_cra_public_documents")
 
     file_paths = sorted(glob.glob(os.path.join(INPUT_DIR, "*.json")))
-    print(file_paths)
+    
     for path in file_paths:
         try:
             with open(path) as f:
