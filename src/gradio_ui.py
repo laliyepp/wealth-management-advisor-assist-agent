@@ -25,6 +25,7 @@ from .utils import (
     pretty_print,
     setup_langfuse_tracer,
 )
+from .utils.tools.cp_db import client_db, get_client_profile
 
 
 load_dotenv(verbose=True)
@@ -283,6 +284,13 @@ def launch_gradio_app(
         share: Whether to create a shareable link
     """
     global async_weaviate_client, async_knowledgebase, async_openai_client, reference_agent
+    
+    # Load client profiles into in-memory database
+    client_profile_path = os.path.join(
+        os.path.dirname(os.path.dirname(__file__)), 
+        "data", "profile", "client_profile.jsonl"
+    )
+    client_db.load_from_jsonl(client_profile_path)
     
     # Reinitialize clients for the main process
     configs = Configs.from_env_var()
