@@ -131,6 +131,24 @@ class AgentManager:
         self.initialized = False
         logging.info("ReAct agent resources cleaned up")
     
+    async def initialize_with_agent(self, agent_name: str, agent: Agent) -> None:
+        """Initialize the manager with a pre-built agent.
+        
+        Args:
+            agent_name: Name for the agent
+            agent: Pre-built agent instance
+        """
+        if self.initialized:
+            return
+            
+        try:
+            self.agent = agent
+            self.initialized = True
+            logging.info(f"Agent '{agent_name}' initialized with pre-built agent successfully")
+        except Exception as e:
+            logging.error(f"Failed to initialize agent '{agent_name}': {e}")
+            raise
+    
     def get_agent(self) -> Agent:
         """Get the initialized agent."""
         if not self.initialized or not self.agent:
