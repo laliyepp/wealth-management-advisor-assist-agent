@@ -4,15 +4,15 @@ import json
 import logging
 from typing import Dict
 
-from ....prompts.system import (
+from src.prompts.system import (
     CRA_SEARCH_TERM_GENERATION, 
     WEB_SEARCH_QUERY_GENERATION, 
     WEB_SEARCH_EXECUTION,
     REFERENCE_SYNTHESIS
 )
-from ....utils import AsyncWeaviateKnowledgeBase, Configs, get_weaviate_async_client
-from ...agent import AgentManager
-from ...runner import ReactRunner
+from src.utils import AsyncWeaviateKnowledgeBase, Configs, get_weaviate_async_client
+from src.react.agent import AgentManager
+from src.react.runner import ReactRunner
 
 logger = logging.getLogger(__name__)
 
