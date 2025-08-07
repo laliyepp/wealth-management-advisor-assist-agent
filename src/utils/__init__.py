@@ -11,4 +11,6 @@ from .langfuse.oai_sdk_setup import setup_langfuse_tracer
 from .logging import set_up_logging
 from .pretty_printing import pretty_print
 from .tools.kb_weaviate import AsyncWeaviateKnowledgeBase, get_weaviate_async_client
+from .tools.cp_db import get_client_profile
+from .tools.twelvedata_retrieval import AsyncFinancialDataTool
 from .trees import tree_filter

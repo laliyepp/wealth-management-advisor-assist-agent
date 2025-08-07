@@ -1,3 +1,4 @@
 from .kb_weaviate import AsyncWeaviateKnowledgeBase, get_weaviate_async_client
 from .news_events import get_news_events
-from .cp_db import client_db, get_client_profile
+from .cp_db import ClientProfile, ClientProfileDB, get_client_profile
+from .twelvedata_retrieval import AsyncFinancialDataTool, create_financial_data_tool

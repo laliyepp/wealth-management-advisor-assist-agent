@@ -9,13 +9,13 @@ from agents import Agent, OpenAIChatCompletionsModel, function_tool
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 
-from ..prompts.system import REACT_INSTRUCTIONS, WEB_SEARCH_AGENT_INSTRUCTIONS
-from ..utils import (
+from src.prompts.system import REACT_INSTRUCTIONS, WEB_SEARCH_AGENT_INSTRUCTIONS
+from src.utils import (
     AsyncWeaviateKnowledgeBase,
     Configs,
     get_weaviate_async_client,
 )
-from ..utils.tools.twelve_data import create_financial_data_tool
+from src.utils.tools.twelve_data import create_financial_data_tool
 
 load_dotenv(verbose=True)
 
@@ -240,8 +240,26 @@ class AgentManager:
         self.initialized = False
         logging.info("ReAct agent resources cleaned up")
     
-    def get_agent(self):
-        """Get the initialized agent (works with both OpenAI SDK Agent and WebSearchAgent)."""
+    async def initialize_with_agent(self, agent_name: str, agent: Agent) -> None:
+        """Initialize the manager with a pre-built agent.
+        
+        Args:
+            agent_name: Name for the agent
+            agent: Pre-built agent instance
+        """
+        if self.initialized:
+            return
+            
+        try:
+            self.agent = agent
+            self.initialized = True
+            logging.info(f"Agent '{agent_name}' initialized with pre-built agent successfully")
+        except Exception as e:
+            logging.error(f"Failed to initialize agent '{agent_name}': {e}")
+            raise
+    
+    def get_agent(self) -> Agent:
+        """Get the initialized agent."""
         if not self.initialized or not self.agent:
             raise RuntimeError("Agent not initialized. Call initialize() first.")
         return self.agent

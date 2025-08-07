@@ -12,15 +12,16 @@ import gradio as gr
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 
-from .react.agents.meeting_intelligence.reference_generation import ReferenceGenerationAgent
-from .react.agents.meeting_intelligence.semantic_analysis import SemanticAnalysisAgent
-from .utils import (
+from src.react.agents.meeting_intelligence.reference_generation import ReferenceGenerationAgent
+from src.react.agents.meeting_intelligence.semantic_analysis import SemanticAnalysisAgent
+from src.utils import (
     AsyncWeaviateKnowledgeBase,
     Configs,
     get_weaviate_async_client,
     setup_langfuse_tracer,
 )
-from .utils.tools.cp_db import client_db, get_client_profile
+from src.react.agents.meeting_intelligence.reference_tools import ReferenceToolsAgent
+from src.utils.tools.cp_db import client_db
 
 
 load_dotenv(verbose=True)
@@ -31,7 +32,16 @@ async_weaviate_client = None
 async_openai_client = None
 async_knowledgebase = None
 reference_agent = None
+clientprofile_agent = ReferenceToolsAgent()
 semantic_agent = None
+
+# Load client profile database
+CLIENT_PROFILE_DATA_PATH = os.getenv(
+    "CLIENT_PROFILE_DATA_PATH",
+    "data/profile/client_profile.jsonl"
+)
+client_db.load_from_jsonl(CLIENT_PROFILE_DATA_PATH)
+logging.info(f"Loaded {client_db.count()} client profiles from {CLIENT_PROFILE_DATA_PATH}")
 
 
 async def _cleanup_clients() -> None:
@@ -62,6 +72,9 @@ async def generate_reference(client_situation: str, progress=gr.Progress()):
     # Initialize agent if not done already
     if not reference_agent.initialized:
         await reference_agent.initialize()
+
+    if not clientprofile_agent.initialized:
+        await  clientprofile_agent.initialize()
     
     progress(0.2, desc="Generating search terms...")
     
@@ -88,7 +101,15 @@ async def generate_reference(client_situation: str, progress=gr.Progress()):
         # Generate reference material
         reference_data = await reference_agent._stage2_synthesis(research_data)
         
-        # Format the 3 new tab sections
+        # Generate client profile context and inject into reference data
+        client_profile_context = await clientprofile_agent.analyze_meeting_for_client_profile(client_situation)
+        if client_profile_context.get("success"):
+            client_profile_info = client_profile_context.get("final_output", "")
+            # Append to the research data for context
+            reference_data["client_profile_info"] = client_profile_info
+
+
+        # Format the 4 new tab sections
         
         # 1. Regulatory Overview
         regulatory_items = reference_data.get("regulatory_overview", [])
@@ -121,8 +142,19 @@ async def generate_reference(client_situation: str, progress=gr.Progress()):
                     web_md += f"• {item}\n\n"
         else:
             web_md = "No web search results available."
+
+        # 3. Client Profile Context
+        client_profile_info = reference_data.get("client_profile_info", "")
+        if client_profile_info:
+            client_profile_md = "## Client Profile Context\n\n"
+            if isinstance(client_profile_info, str):
+                client_profile_md += client_profile_info
+            else:
+                client_profile_md += json.dumps(client_profile_info, indent=2)
+        else:
+            client_profile_md = "No client profile context available."
         
-        # 3. Final Recommendation
+        # 4. Final Recommendation
         final_rec = reference_data.get("final_recommendation", {})
         if final_rec:
             rec_md = "## Final Recommendations\n\n"
@@ -144,7 +176,7 @@ async def generate_reference(client_situation: str, progress=gr.Progress()):
         
         # Return the formatted data for the new UI structure:
         # [regulatory_output, web_results_output, final_recommendation_output, full_json_output, cra_raw_output, web_raw_output]
-        return regulatory_md, web_md, rec_md, json.dumps(reference_data, indent=2), cra_raw_text, web_raw_text
+        return regulatory_md, web_md, client_profile_md, rec_md, json.dumps(reference_data, indent=2), cra_raw_text, web_raw_text
         
     except Exception as e:
         logging.error(f"Error generating reference: {e}")
@@ -321,6 +353,12 @@ with gr.Blocks(title="Wealth Management Assistant") as demo:
                         label="Current Web Information with URLs",
                         value="*Generate reference material to see web search results*"
                     )
+
+                with gr.Tab("💼 Client Profile Context"):
+                    client_profile_output = gr.Markdown(
+                        label="Client Profile Context",
+                        value="*Generate reference material to see client profile context*"
+                    )
                 
                 with gr.Tab("💡 Final Recommendation"):
                     final_recommendation_output = gr.Markdown(
@@ -358,7 +396,7 @@ with gr.Blocks(title="Wealth Management Assistant") as demo:
             advisor_generate_btn.click(
                 fn=generate_reference,
                 inputs=[advisor_situation_input],
-                outputs=[regulatory_output, web_results_output, final_recommendation_output, full_json_output, cra_raw_output, web_raw_output]
+                outputs=[regulatory_output, web_results_output, client_profile_output, final_recommendation_output, full_json_output, cra_raw_output, web_raw_output]
             )
 
 
@@ -406,6 +444,14 @@ def launch_gradio_app(
     
     # Initialize semantic analysis agent
     semantic_agent = SemanticAnalysisAgent()
+    
+    # Reload client profile database
+    CLIENT_PROFILE_DATA_PATH = os.getenv(
+        "CLIENT_PROFILE_DATA_PATH", 
+        "data/profile/client_profile.jsonl"
+    )
+    client_db.load_from_jsonl(CLIENT_PROFILE_DATA_PATH)
+    logging.info(f"Reloaded {client_db.count()} client profiles from {CLIENT_PROFILE_DATA_PATH}")
     
     # Set up Langfuse tracing with full instrumentation
     setup_langfuse_tracer("wealth-management-gradio")
