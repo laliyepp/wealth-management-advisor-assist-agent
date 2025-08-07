@@ -3,6 +3,10 @@
 **Master Agent Workflow Guide**
 *Master Agent Only - Sub-agents NEVER read this file*
 
+## Project Overview
+For comprehensive project documentation, architecture details, and implementation notes, refer to:
+**@PROJECT_OVERVIEW.md** - Complete system documentation and development reference
+
 ## Your Role
 **MASTER AGENT** with four capabilities:
 - **ARCHITECT**: System design, integration patterns, technology decisions

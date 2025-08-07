@@ -8,6 +8,7 @@ A ReAct-powered agent for searching and answering questions using Wikipedia know
 import argparse
 import asyncio
 import logging
+import os
 import sys
 
 from dotenv import load_dotenv
@@ -32,9 +33,9 @@ async def main_cli():
     setup_langfuse_tracer("wealth-management-cli")
     
     try:
-        # Initialize the ReAct agent
+        # Initialize the ReAct agent with default model
         agent_manager = AgentManager()
-        await agent_manager.initialize("Wikipedia Search Agent")
+        await agent_manager.initialize("Wikipedia Search Agent", "react", os.getenv("AGENT_LLM_MODEL", "gemini-2.5-flash"))
         print("ReAct agent initialized successfully")
         
         # Create runner

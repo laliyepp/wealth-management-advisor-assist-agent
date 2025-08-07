@@ -28,12 +28,12 @@ class ReferenceGenerationAgent:
         self.cra_kb = None
         self.initialized = False
     
-    async def initialize(self):
+    async def initialize(self, model: str = None):
         """Initialize the agents and knowledge base."""
         if not self.initialized:
             # Initialize both agents
-            await self.react_agent_manager.initialize("Reference Generation Agent", "react")
-            await self.web_agent_manager.initialize("Web Search Agent", "web_search")
+            await self.react_agent_manager.initialize("Reference Generation Agent", "react", model)
+            await self.web_agent_manager.initialize("Web Search Agent", "web_search", model)
             
             # Initialize CRA knowledge base
             configs = Configs.from_env_var()
@@ -153,35 +153,30 @@ class ReferenceGenerationAgent:
                 web_queries = [q.strip() for q in web_queries_text.split('\n') if q.strip()]
                 logger.info(f"Individual web queries: {web_queries}")
                 
-                # Step 2: Execute web searches in parallel
+                # Step 2: Execute web searches using WebSearchAgent directly (not via ReactRunner)
                 import asyncio
                 async def search_web_single(query):
                     try:
-                        search_prompt = WEB_SEARCH_EXECUTION.format(query=query)
-                        search_result = await self.runner.run_single_query(
-                            self.web_agent_manager.get_agent(),  # Use web search agent
-                            search_prompt,
-                            verbose=False
-                        )
+                        # Get the WebSearchAgent directly from AgentManager
+                        web_agent = self.web_agent_manager.get_agent()
                         
-                        if search_result["success"]:
-                            logger.info(f"Web search successful for: {query}")
-                            return {
-                                "query": query,
-                                "result": search_result["final_output"]
-                            }
-                        else:
-                            logger.warning(f"Web search failed for: {query}")
-                            return {
-                                "query": query,
-                                "result": f"No web results found for: {query}"
-                            }
+                        # Format the search prompt with WEB_SEARCH_EXECUTION instructions
+                        search_prompt = WEB_SEARCH_EXECUTION.format(query=query)
+                        
+                        # Use WebSearchAgent's search_and_respond method with formatted prompt
+                        search_result = await web_agent.search_and_respond(search_prompt)
+                        
+                        logger.info(f"Web search successful for: {query}")
+                        return {
+                            "query": query,
+                            "result": search_result
+                        }
                             
                     except Exception as e:
                         logger.error(f"Error searching web for '{query}': {e}")
                         return {
                             "query": query,
-                            "result": f"Search error for: {query}"
+                            "result": f"Search error for: {query} - {str(e)}"
                         }
                 
                 # Run all web searches in parallel
