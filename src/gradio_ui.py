@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from openai import AsyncOpenAI
 
 from .react.agents.meeting_intelligence.reference_generation import ReferenceGenerationAgent
+from .react.agents.meeting_intelligence.semantic_analysis import SemanticAnalysisAgent
 from .utils import (
     AsyncWeaviateKnowledgeBase,
     Configs,
@@ -29,6 +30,7 @@ async_weaviate_client = None
 async_openai_client = None
 async_knowledgebase = None
 reference_agent = None
+semantic_agent = None
 
 
 async def _cleanup_clients() -> None:
@@ -149,89 +151,214 @@ async def generate_reference(client_situation: str, progress=gr.Progress()):
         return error_msg, error_msg, error_msg, "{}", "", ""
 
 
-# Create the Gradio interface - simplified to only Advisor Reference
+async def analyze_meeting_content(file_type: str, meeting_selection: str, progress=gr.Progress()):
+    """Analyze meeting content using semantic analysis agent to extract Canadian tax topics."""
+    if not meeting_selection or not file_type:
+        return "Please select both file type and meeting."
+    
+    # Initialize semantic agent if not done already
+    if not semantic_agent.initialized:
+        await semantic_agent.initialize()
+    
+    progress(0.2, desc="Loading meeting file...")
+    
+    try:
+        # Construct file path based on selection
+        if file_type == "Summary":
+            file_path = f"data/summary/{meeting_selection}.md"
+        else:  # Transcript
+            file_path = f"data/transcript/{meeting_selection}.vtt"
+        
+        # Read file content
+        with open(file_path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        progress(0.5, desc="Analyzing content for Canadian tax topics...")
+        
+        # Extract topics using semantic analysis agent
+        result = await semantic_agent.extract_topics(content)
+        
+        progress(0.8, desc="Formatting results...")
+        
+        if result.get("success", True):
+            topics_output = result.get("final_output", "[]")
+            
+            # Parse and format topics nicely
+            try:
+                import json
+                topics_list = json.loads(topics_output)
+                if isinstance(topics_list, list) and topics_list:
+                    formatted_topics = "## Canadian Tax Topics Identified:\n\n"
+                    for i, topic in enumerate(topics_list, 1):
+                        formatted_topics += f"{i}. {topic}\n"
+                    formatted_topics += f"\n**Total Topics Found:** {len(topics_list)}"
+                else:
+                    formatted_topics = "No Canadian tax-related topics found in this meeting content."
+            except json.JSONDecodeError:
+                # If not valid JSON, display raw output
+                formatted_topics = f"## Extracted Topics:\n\n{topics_output}"
+            
+            # Also show file info
+            file_info = f"**File Analyzed:** {file_path}\n**File Type:** {file_type}\n**Content Length:** {len(content)} characters\n\n"
+            
+            return file_info + formatted_topics, content[:2000] + ("..." if len(content) > 2000 else "")
+        else:
+            error_msg = f"Error analyzing content: {result.get('error', 'Unknown error')}"
+            return error_msg, ""
+            
+    except FileNotFoundError:
+        error_msg = f"File not found: {file_path}"
+        return error_msg, ""
+    except Exception as e:
+        logging.error(f"Error analyzing meeting content: {e}")
+        error_msg = f"Error: {str(e)}"
+        return error_msg, ""
+
+
+# Create the Gradio interface with Meeting Intelligence and Advisor Reference
 with gr.Blocks(title="Wealth Management Assistant") as demo:
     gr.Markdown("# Wealth Management Assistant")
-    gr.Markdown("Google Search-powered assistant with advisor reference generation")
+    gr.Markdown("AI-powered assistant with meeting intelligence and advisor reference generation")
     
-    gr.Markdown("## Generate Reference Material from Client Situations")
-    
-    # Concise examples from meeting_06
-    example_situations = [
-        "Michael has $18,600 RRSP room and wants to maximize his $1,300 annual tax savings at 33% marginal rate. Currently contributing $8,000/year.",
-        "RRSP funds sitting in savings account earning minimal returns. Need ETF portfolio recommendations for 30+ year horizon with 6-7% target returns.",
-        "Michael has $18,600 RRSP room and $43,000 TFSA room. Earning $87,000 with $500/month savings capacity. Need optimal RRSP vs TFSA strategy.",
-        "Common-law couple: Michael ($87,000) and girlfriend ($45,000). Looking for spousal RRSP strategies to optimize retirement income splitting."
-    ]
-    
-    with gr.Row():
-        with gr.Column(scale=3):
-            situation_input = gr.Textbox(
-                label="Client Situation",
-                placeholder="Describe the client's financial situation and needs...",
-                lines=5,
-                value=example_situations[0]  # Default to first example
-            )
-            
-            gr.Examples(
-                examples=example_situations,
-                inputs=situation_input,
-                label="Example Situations"
-            )
-            
-            generate_btn = gr.Button("Generate Reference Material", variant="primary")
-    
-    # Three structured tabs for the new format
+    # Main application tabs
     with gr.Tabs():
-        with gr.Tab("📋 Regulatory Overview"):
-            regulatory_output = gr.Markdown(
-                label="CRA Rules & Regulations with Sources",
-                value="*Generate reference material to see regulatory overview*"
-            )
-        
-        with gr.Tab("🌐 Web Search Results"):
-            web_results_output = gr.Markdown(
-                label="Current Web Information with URLs",
-                value="*Generate reference material to see web search results*"
-            )
-        
-        with gr.Tab("💡 Final Recommendation"):
-            final_recommendation_output = gr.Markdown(
-                label="Synthesis & Recommendations",
-                value="*Generate reference material to see final recommendations*"
-            )
-    
-    # Raw data for debugging (collapsible)
-    with gr.Accordion("Raw Data (JSON)", open=False):
-        full_json_output = gr.Code(
-            label="Full Reference Data",
-            language="json",
-            lines=15
-        )
-    
-    # Add raw search results section
-    with gr.Accordion("Raw Search Results", open=False):
-        with gr.Row():
-            with gr.Column():
-                cra_raw_output = gr.Textbox(
-                    label="CRA Knowledge Base Results",
-                    lines=20,
+        # Semantic Analysis Tab  
+        with gr.Tab("🧠 Semantic Analysis"):
+            gr.Markdown("### Semantic Analysis of Meeting Content")
+            gr.Markdown("Extract Canadian tax-related topics from meeting transcripts and summaries")
+            
+            with gr.Row():
+                with gr.Column():
+                    # File type selection
+                    file_type_dropdown = gr.Dropdown(
+                        choices=["Summary", "Transcript"],
+                        label="Content Type",
+                        value="Summary",
+                        info="Choose between processed summary or raw transcript"
+                    )
+                    
+                    # Meeting selection
+                    meeting_dropdown = gr.Dropdown(
+                        choices=[
+                            "meeting_06_canadian_tax_optimization",
+                            "meeting_07_toronto_real_estate_investment", 
+                            "meeting_08_canadian_estate_planning",
+                            "meeting_09_investment_risk_assessment",
+                            "meeting_10_retirement_planning_canadian"
+                        ],
+                        label="Meeting Selection", 
+                        value="meeting_06_canadian_tax_optimization",
+                        info="Select meeting from 06 to 10"
+                    )
+                    
+                    analyze_btn = gr.Button("🔍 Analyze Meeting Content", variant="primary")
+            
+            # Output areas
+            with gr.Row():
+                with gr.Column():
+                    topics_output = gr.Markdown(
+                        label="Extracted Canadian Tax Topics",
+                        value="*Select a meeting and click analyze to see extracted topics*"
+                    )
+            
+            # Raw content preview (collapsible)
+            with gr.Accordion("📄 Content Preview", open=False):
+                content_preview = gr.Textbox(
+                    label="Meeting Content (First 2000 chars)",
+                    lines=15,
                     show_copy_button=True,
                     interactive=False
                 )
-            with gr.Column():
-                web_raw_output = gr.Textbox(
-                    label="Web Search Results", 
-                    lines=20,
-                    show_copy_button=True,
-                    interactive=False
+            
+            # Connect the analyze button
+            analyze_btn.click(
+                fn=analyze_meeting_content,
+                inputs=[file_type_dropdown, meeting_dropdown],
+                outputs=[topics_output, content_preview]
+            )
+        
+        # Advisor Reference Tab
+        with gr.Tab("📋 Advisor Reference"):
+            gr.Markdown("### Generate Reference Material from Client Situations")
+            
+            # Input section for Advisor Reference
+            with gr.Row():
+                with gr.Column(scale=3):
+                    advisor_situation_input = gr.Textbox(
+                        label="Client Situation",
+                        placeholder="Describe the client's financial situation and needs...",
+                        lines=5,
+                        value="Michael has $18,600 RRSP room and wants to maximize his $1,300 annual tax savings at 33% marginal rate. Currently contributing $8,000/year."
+                    )
+                    
+                    # Examples for advisor reference
+                    advisor_examples = [
+                        "Michael has $18,600 RRSP room and wants to maximize his $1,300 annual tax savings at 33% marginal rate. Currently contributing $8,000/year.",
+                        "RRSP funds sitting in savings account earning minimal returns. Need ETF portfolio recommendations for 30+ year horizon with 6-7% target returns.",
+                        "Michael has $18,600 RRSP room and $43,000 TFSA room. Earning $87,000 with $500/month savings capacity. Need optimal RRSP vs TFSA strategy.",
+                        "Common-law couple: Michael ($87,000) and girlfriend ($45,000). Looking for spousal RRSP strategies to optimize retirement income splitting."
+                    ]
+                    
+                    gr.Examples(
+                        examples=advisor_examples,
+                        inputs=advisor_situation_input,
+                        label="Example Situations"
+                    )
+                    
+                    advisor_generate_btn = gr.Button("Generate Reference Material", variant="primary")
+            
+            # Three structured tabs for the advisor reference format
+            with gr.Tabs():
+                with gr.Tab("📋 Regulatory Overview"):
+                    regulatory_output = gr.Markdown(
+                        label="CRA Rules & Regulations with Sources",
+                        value="*Generate reference material to see regulatory overview*"
+                    )
+                
+                with gr.Tab("🌐 Web Search Results"):
+                    web_results_output = gr.Markdown(
+                        label="Current Web Information with URLs",
+                        value="*Generate reference material to see web search results*"
+                    )
+                
+                with gr.Tab("💡 Final Recommendation"):
+                    final_recommendation_output = gr.Markdown(
+                        label="Synthesis & Recommendations",
+                        value="*Generate reference material to see final recommendations*"
+                    )
+            
+            # Raw data for debugging (collapsible) - moved inside Advisor Reference tab
+            with gr.Accordion("Raw Data (JSON)", open=False):
+                full_json_output = gr.Code(
+                    label="Full Reference Data",
+                    language="json",
+                    lines=15
                 )
-    
-    generate_btn.click(
-        fn=generate_reference,
-        inputs=[situation_input],
-        outputs=[regulatory_output, web_results_output, final_recommendation_output, full_json_output, cra_raw_output, web_raw_output]
-    )
+            
+            # Add raw search results section - moved inside Advisor Reference tab
+            with gr.Accordion("Raw Search Results", open=False):
+                with gr.Row():
+                    with gr.Column():
+                        cra_raw_output = gr.Textbox(
+                            label="CRA Knowledge Base Results",
+                            lines=20,
+                            show_copy_button=True,
+                            interactive=False
+                        )
+                    with gr.Column():
+                        web_raw_output = gr.Textbox(
+                            label="Web Search Results", 
+                            lines=20,
+                            show_copy_button=True,
+                            interactive=False
+                        )
+            
+            # Connect the advisor generate button
+            advisor_generate_btn.click(
+                fn=generate_reference,
+                inputs=[advisor_situation_input],
+                outputs=[regulatory_output, web_results_output, final_recommendation_output, full_json_output, cra_raw_output, web_raw_output]
+            )
 
 
 def launch_gradio_app(
@@ -246,7 +373,7 @@ def launch_gradio_app(
         server_port: Server port number (defaults to env var GRADIO_SERVER_PORT or 7860)
         share: Whether to create a shareable link
     """
-    global async_weaviate_client, async_knowledgebase, async_openai_client, reference_agent
+    global async_weaviate_client, async_knowledgebase, async_openai_client, reference_agent, semantic_agent
     
     # Initialize all components
     configs = Configs.from_env_var()
@@ -268,6 +395,9 @@ def launch_gradio_app(
     
     # Initialize reference generation agent
     reference_agent = ReferenceGenerationAgent()
+    
+    # Initialize semantic analysis agent
+    semantic_agent = SemanticAnalysisAgent()
     
     # Set up Langfuse tracing with full instrumentation
     setup_langfuse_tracer("wealth-management-gradio")
