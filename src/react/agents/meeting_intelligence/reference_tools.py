@@ -9,11 +9,11 @@ from agents import Agent, OpenAIChatCompletionsModel, function_tool
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 
-from prompts.tools import CLIENT_PROFILE_INSTRUCTIONS, STOCK_PRICE_INSTRUCTIONS
-from utils.tools.cp_db import get_client_profile, client_db
-from utils.tools.twelvedata_retrieval import AsyncFinancialDataTool
-from react.agent import AgentManager
-from react.runner import ReactRunner
+from src.prompts.tools import CLIENT_PROFILE_INSTRUCTIONS, STOCK_PRICE_INSTRUCTIONS
+from src.utils.tools.cp_db import get_client_profile, client_db
+from src.utils.tools.twelvedata_retrieval import AsyncFinancialDataTool
+from src.react.agent import AgentManager
+from src.react.runner import ReactRunner
 
 load_dotenv(verbose=True)
 

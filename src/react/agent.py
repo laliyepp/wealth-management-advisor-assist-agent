@@ -8,8 +8,8 @@ from agents import Agent, OpenAIChatCompletionsModel, function_tool
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 
-from ..prompts.system import REACT_INSTRUCTIONS
-from ..utils import (
+from src.prompts.system import REACT_INSTRUCTIONS
+from src.utils import (
     AsyncWeaviateKnowledgeBase,
     Configs,
     get_weaviate_async_client,
