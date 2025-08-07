@@ -8,52 +8,27 @@ import os
 import signal
 import sys
 
-import agents
 import gradio as gr
 from dotenv import load_dotenv
-from gradio.components.chatbot import ChatMessage
 from openai import AsyncOpenAI
 
-from .prompts.system import REACT_INSTRUCTIONS
 from .react.agents.meeting_intelligence.reference_generation import ReferenceGenerationAgent
 from .utils import (
     AsyncWeaviateKnowledgeBase,
     Configs,
     get_weaviate_async_client,
-    oai_agent_items_to_gradio_messages,
-    oai_agent_stream_to_gradio_messages,
-    pretty_print,
     setup_langfuse_tracer,
 )
 
 
 load_dotenv(verbose=True)
-
-
 logging.basicConfig(level=logging.INFO)
 
-
-# Use environment variable or default
-AGENT_LLM_NAME = os.getenv("AGENT_LLM_MODEL", "gemini-2.5-flash")
-
-configs = Configs.from_env_var()
-async_weaviate_client = get_weaviate_async_client(
-    http_host=configs.weaviate_http_host,
-    http_port=configs.weaviate_http_port,
-    http_secure=configs.weaviate_http_secure,
-    grpc_host=configs.weaviate_grpc_host,
-    grpc_port=configs.weaviate_grpc_port,
-    grpc_secure=configs.weaviate_grpc_secure,
-    api_key=configs.weaviate_api_key,
-)
-async_openai_client = AsyncOpenAI()
-async_knowledgebase = AsyncWeaviateKnowledgeBase(
-    async_weaviate_client,
-    collection_name="rbc_2_cra_public_documents",
-)
-
-# Initialize reference generation agent
-reference_agent = ReferenceGenerationAgent()
+# Global variables - will be initialized in launch_gradio_app()
+async_weaviate_client = None
+async_openai_client = None
+async_knowledgebase = None
+reference_agent = None
 
 
 async def _cleanup_clients() -> None:
@@ -69,31 +44,17 @@ def _handle_sigint(signum: int, frame: object) -> None:
     sys.exit(0)
 
 
-async def _main_chat(question: str, gr_messages: list[ChatMessage]):
-    """Main function to handle chat interactions."""
-    main_agent = agents.Agent(
-        name="Wealth Management ReAct Agent",
-        instructions=REACT_INSTRUCTIONS,
-        tools=[agents.function_tool(async_knowledgebase.search_knowledgebase)],
-        model=agents.OpenAIChatCompletionsModel(
-            model=AGENT_LLM_NAME, openai_client=async_openai_client
-        ),
-    )
-
-    result_stream = agents.Runner.run_streamed(main_agent, input=question)
-    async for _item in result_stream.stream_events():
-        gr_messages += oai_agent_stream_to_gradio_messages(_item)
-        if len(gr_messages) > 0:
-            yield gr_messages
 
 
 async def generate_reference(client_situation: str, progress=gr.Progress()):
     """Generate advisor reference material from client situation."""
     if not client_situation or not client_situation.strip():
-        return "Please provide a client situation description.", "{}", "{}", "", "", "", ""
+        error_msg = "Please provide a client situation description."
+        return error_msg, error_msg, error_msg, "{}", "", ""
     
     if len(client_situation) > 5000:
-        return "Client situation description is too long (max 5000 characters).", "{}", "{}", "", "", "", ""
+        error_msg = "Client situation description is too long (max 5000 characters)."
+        return error_msg, error_msg, error_msg, "{}", "", ""
     
     # Initialize agent if not done already
     if not reference_agent.initialized:
@@ -124,150 +85,153 @@ async def generate_reference(client_situation: str, progress=gr.Progress()):
         # Generate reference material
         reference_data = await reference_agent._stage2_synthesis(research_data)
         
-        # Format outputs for display
-        regulatory_text = "\n".join(f"• {item}" for item in reference_data.get("regulatory_overview", []))
+        # Format the 3 new tab sections
         
-        current_numbers = reference_data.get("current_numbers", {})
-        numbers_text = "\n".join(f"• {k}: {v}" for k, v in current_numbers.items())
+        # 1. Regulatory Overview
+        regulatory_items = reference_data.get("regulatory_overview", [])
+        if regulatory_items:
+            regulatory_md = "## CRA Rules & Regulations\n\n"
+            for item in regulatory_items:
+                if isinstance(item, dict):
+                    regulation = item.get("regulation", "")
+                    source = item.get("source", "")
+                    details = item.get("details", "")
+                    regulatory_md += f"### {regulation}\n**Source:** {source}\n\n{details}\n\n---\n\n"
+                else:
+                    regulatory_md += f"• {item}\n\n"
+        else:
+            regulatory_md = "No regulatory information found."
         
-        sources = reference_data.get("source_references", [])
-        sources_text = "\n".join(f"• {source}" for source in sources)
+        # 2. Web Search Results (with URLs)
+        web_items = reference_data.get("web_search_results", [])
+        if web_items:
+            web_md = "## Current Web Information\n\n"
+            for item in web_items:
+                if isinstance(item, dict):
+                    finding = item.get("finding", "")
+                    source_url = item.get("source_url", "")
+                    relevance = item.get("relevance", "")
+                    web_md += f"**Finding:** {finding}\n\n"
+                    web_md += f"**Source:** [{source_url}]({source_url})\n\n"
+                    web_md += f"**Relevance:** {relevance}\n\n---\n\n"
+                else:
+                    web_md += f"• {item}\n\n"
+        else:
+            web_md = "No web search results available."
         
-        notes = reference_data.get("advisor_notes", [])
-        notes_text = "\n".join(f"• {note}" for note in notes)
+        # 3. Final Recommendation
+        final_rec = reference_data.get("final_recommendation", {})
+        if final_rec:
+            rec_md = "## Final Recommendations\n\n"
+            if isinstance(final_rec, dict):
+                answer = final_rec.get("answer", "")
+                reasoning = final_rec.get("reasoning", "")
+                next_steps = final_rec.get("next_steps", "")
+                
+                if answer:
+                    rec_md += f"### Answer\n{answer}\n\n"
+                if reasoning:
+                    rec_md += f"### Reasoning\n{reasoning}\n\n"
+                if next_steps:
+                    rec_md += f"### Next Steps\n{next_steps}\n\n"
+            else:
+                rec_md += f"{final_rec}\n\n"
+        else:
+            rec_md = "No final recommendations available."
         
-        # Create summary display
-        summary = f"""## Regulatory Overview
-{regulatory_text or "No regulatory information found."}
-
-## Current Numbers
-{numbers_text or "No current numbers available."}
-
-## Sources
-{sources_text or "No sources cited."}
-
-## Advisor Notes
-{notes_text or "No additional notes."}"""
-        
-        # Get search terms used
-        cra_keywords = research_data.get("cra_keywords", "")
-        web_query = research_data.get("web_query", "No web query generated")
-        
-        # Return all data including raw results and search terms
-        return summary, json.dumps(reference_data, indent=2), json.dumps(reference_data.get("current_numbers", {}), indent=2), cra_raw_text, web_raw_text, cra_keywords, web_query
+        # Return the formatted data for the new UI structure:
+        # [regulatory_output, web_results_output, final_recommendation_output, full_json_output, cra_raw_output, web_raw_output]
+        return regulatory_md, web_md, rec_md, json.dumps(reference_data, indent=2), cra_raw_text, web_raw_text
         
     except Exception as e:
         logging.error(f"Error generating reference: {e}")
-        return f"Error: {str(e)}", "{}", "{}", "", "", "", ""
+        error_msg = f"Error: {str(e)}"
+        return error_msg, error_msg, error_msg, "{}", "", ""
 
 
-# Create the Gradio interface with tabs
+# Create the Gradio interface - simplified to only Advisor Reference
 with gr.Blocks(title="Wealth Management Assistant") as demo:
     gr.Markdown("# Wealth Management Assistant")
-    gr.Markdown("ReAct-powered assistant with advisor reference generation")
+    gr.Markdown("Google Search-powered assistant with advisor reference generation")
     
+    gr.Markdown("## Generate Reference Material from Client Situations")
+    
+    # Concise examples from meeting_06
+    example_situations = [
+        "Michael has $18,600 RRSP room and wants to maximize his $1,300 annual tax savings at 33% marginal rate. Currently contributing $8,000/year.",
+        "RRSP funds sitting in savings account earning minimal returns. Need ETF portfolio recommendations for 30+ year horizon with 6-7% target returns.",
+        "Michael has $18,600 RRSP room and $43,000 TFSA room. Earning $87,000 with $500/month savings capacity. Need optimal RRSP vs TFSA strategy.",
+        "Common-law couple: Michael ($87,000) and girlfriend ($45,000). Looking for spousal RRSP strategies to optimize retirement income splitting."
+    ]
+    
+    with gr.Row():
+        with gr.Column(scale=3):
+            situation_input = gr.Textbox(
+                label="Client Situation",
+                placeholder="Describe the client's financial situation and needs...",
+                lines=5,
+                value=example_situations[0]  # Default to first example
+            )
+            
+            gr.Examples(
+                examples=example_situations,
+                inputs=situation_input,
+                label="Example Situations"
+            )
+            
+            generate_btn = gr.Button("Generate Reference Material", variant="primary")
+    
+    # Three structured tabs for the new format
     with gr.Tabs():
-        # Reference generation tab FIRST
-        with gr.Tab("Advisor Reference"):
-            gr.Markdown("## Generate Reference Material from Client Situations")
-            
-            # Concise examples from meeting_06
-            example_situations = [
-                "Michael has $18,600 RRSP room and wants to maximize his $1,300 annual tax savings at 33% marginal rate. Currently contributing $8,000/year.",
-                "RRSP funds sitting in savings account earning minimal returns. Need ETF portfolio recommendations for 30+ year horizon with 6-7% target returns.",
-                "Michael has $18,600 RRSP room and $43,000 TFSA room. Earning $87,000 with $500/month savings capacity. Need optimal RRSP vs TFSA strategy.",
-                "Common-law couple: Michael ($87,000) and girlfriend ($45,000). Looking for spousal RRSP strategies to optimize retirement income splitting."
-            ]
-            
-            with gr.Row():
-                with gr.Column(scale=3):
-                    situation_input = gr.Textbox(
-                        label="Client Situation",
-                        placeholder="Describe the client's financial situation and needs...",
-                        lines=5,
-                        value=example_situations[0]  # Default to first example
-                    )
-                    
-                    gr.Examples(
-                        examples=example_situations,
-                        inputs=situation_input,
-                        label="Example Situations"
-                    )
-                    
-                    generate_btn = gr.Button("Generate Reference Material", variant="primary")
-            
-            with gr.Row():
-                with gr.Column():
-                    summary_output = gr.Markdown(label="Reference Summary")
-                
-            with gr.Row():
-                with gr.Column():
-                    full_json_output = gr.Code(
-                        label="Full Reference Data (JSON)",
-                        language="json",
-                        lines=10
-                    )
-                with gr.Column():
-                    numbers_output = gr.Code(
-                        label="Current Numbers",
-                        language="json",
-                        lines=10
-                    )
-            
-            # Add search terms display
-            with gr.Row():
-                with gr.Column():
-                    cra_search_terms = gr.Textbox(
-                        label="CRA Search Keywords",
-                        lines=4,
-                        max_lines=6,
-                        interactive=False
-                    )
-                with gr.Column():
-                    web_search_terms = gr.Textbox(
-                        label="Web Search Queries",
-                        lines=3,
-                        max_lines=4,
-                        interactive=False
-                    )
-            
-            # Add raw search results section
-            with gr.Accordion("Raw Search Results", open=False):
-                with gr.Row():
-                    with gr.Column():
-                        cra_raw_output = gr.Textbox(
-                            label="CRA Knowledge Base Results",
-                            lines=20,
-                            show_copy_button=True,
-                            interactive=False
-                        )
-                    with gr.Column():
-                        web_raw_output = gr.Textbox(
-                            label="Web Search Results", 
-                            lines=20,
-                            show_copy_button=True,
-                            interactive=False
-                        )
-            
-            generate_btn.click(
-                fn=generate_reference,
-                inputs=[situation_input],
-                outputs=[summary_output, full_json_output, numbers_output, cra_raw_output, web_raw_output, cra_search_terms, web_search_terms]
+        with gr.Tab("📋 Regulatory Overview"):
+            regulatory_output = gr.Markdown(
+                label="CRA Rules & Regulations with Sources",
+                value="*Generate reference material to see regulatory overview*"
             )
         
-        # Chat tab SECOND
-        with gr.Tab("Chat Assistant"):
-            gr.ChatInterface(
-                _main_chat,
-                description="Chat with the ReAct-powered wealth management assistant",
-                type="messages",
-                examples=[
-                    "What are the current investment trends in technology stocks?",
-                    "How should I diversify my portfolio for retirement planning?",
-                    "What are the tax implications of selling stocks this year?",
-                    "Tell me about recent developments in ESG investing",
-                ],
+        with gr.Tab("🌐 Web Search Results"):
+            web_results_output = gr.Markdown(
+                label="Current Web Information with URLs",
+                value="*Generate reference material to see web search results*"
             )
+        
+        with gr.Tab("💡 Final Recommendation"):
+            final_recommendation_output = gr.Markdown(
+                label="Synthesis & Recommendations",
+                value="*Generate reference material to see final recommendations*"
+            )
+    
+    # Raw data for debugging (collapsible)
+    with gr.Accordion("Raw Data (JSON)", open=False):
+        full_json_output = gr.Code(
+            label="Full Reference Data",
+            language="json",
+            lines=15
+        )
+    
+    # Add raw search results section
+    with gr.Accordion("Raw Search Results", open=False):
+        with gr.Row():
+            with gr.Column():
+                cra_raw_output = gr.Textbox(
+                    label="CRA Knowledge Base Results",
+                    lines=20,
+                    show_copy_button=True,
+                    interactive=False
+                )
+            with gr.Column():
+                web_raw_output = gr.Textbox(
+                    label="Web Search Results", 
+                    lines=20,
+                    show_copy_button=True,
+                    interactive=False
+                )
+    
+    generate_btn.click(
+        fn=generate_reference,
+        inputs=[situation_input],
+        outputs=[regulatory_output, web_results_output, final_recommendation_output, full_json_output, cra_raw_output, web_raw_output]
+    )
 
 
 def launch_gradio_app(
@@ -284,7 +248,7 @@ def launch_gradio_app(
     """
     global async_weaviate_client, async_knowledgebase, async_openai_client, reference_agent
     
-    # Reinitialize clients for the main process
+    # Initialize all components
     configs = Configs.from_env_var()
     async_weaviate_client = get_weaviate_async_client(
         http_host=configs.weaviate_http_host,
@@ -302,13 +266,12 @@ def launch_gradio_app(
 
     async_openai_client = AsyncOpenAI()
     
-    # Reinitialize reference generation agent
+    # Initialize reference generation agent
     reference_agent = ReferenceGenerationAgent()
     
     # Set up Langfuse tracing with full instrumentation
     setup_langfuse_tracer("wealth-management-gradio")
-    agents.set_tracing_disabled(disabled=False)
-
+    
     signal.signal(signal.SIGINT, _handle_sigint)
 
     # Use environment variable for port if not specified

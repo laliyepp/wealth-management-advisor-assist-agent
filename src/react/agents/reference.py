@@ -29,7 +29,7 @@ class ReferenceAgent():
         """
 
     
-    async def initialize(self) -> None:
+    async def initialize(self, model: str = None) -> None:
         """Initialize the Reference agent and its resources."""
         if self.agent:
             return
@@ -37,7 +37,8 @@ class ReferenceAgent():
         try:
             
             self.agent = await create_react_agent(name=self.name,
-                                                  instructions=self.system_prompt)
+                                                  instructions=self.system_prompt,
+                                                  model=model)
             logging.info(f"Reference agent '{self.name}' initialized successfully")
         except Exception as e:
             logging.error(f"Failed to initialize Reference agent: {e}")
