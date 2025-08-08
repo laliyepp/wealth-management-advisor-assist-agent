@@ -63,11 +63,11 @@ async def generate_reference(client_situation: str, progress=gr.Progress()):
     """Generate advisor reference material from client situation."""
     if not client_situation or not client_situation.strip():
         error_msg = "Please provide a client situation description."
-        return error_msg, error_msg, error_msg, "{}", "", ""
+        return error_msg, error_msg, error_msg, error_msg, "{}", "{}", "{}", "{}", "", ""
     
     if len(client_situation) > 5000:
         error_msg = "Client situation description is too long (max 5000 characters)."
-        return error_msg, error_msg, error_msg, "{}", "", ""
+        return error_msg, error_msg, error_msg, error_msg, "{}", "{}", "{}", "{}", "", ""
     
     # Initialize agent if not done already
     if not reference_agent.initialized:
@@ -174,14 +174,41 @@ async def generate_reference(client_situation: str, progress=gr.Progress()):
         else:
             rec_md = "No final recommendations available."
         
+        # Extract client profile raw data from client situation
+        client_profile_raw_data = {}
+        # Extract client name from client_profile_info (format: "name: profile")
+        extracted_name = None
+        if client_profile_info and isinstance(client_profile_info, str):
+            # Look for the pattern "name:" at the start of the string
+            if ',' in client_profile_info:
+                extracted_name = client_profile_info.split(',')[0].lower()
+        
+        if extracted_name:
+            from src.utils.tools.cp_db import get_client_profile
+            client_profile_raw_data = get_client_profile(extracted_name)
+            if not client_profile_raw_data:
+                client_profile_raw_data = {"error": f"No profile found for client: {extracted_name}"}
+        else:
+            client_profile_raw_data = {"note": "No client name detected in situation description"}
+        
+        # Create tab-specific raw data
+        regulatory_raw_data = {"regulatory_overview": reference_data.get("regulatory_overview", [])}
+        web_search_raw_data = {"web_search_results": reference_data.get("web_search_results", [])}
+        final_rec_raw_data = {"final_recommendation": reference_data.get("final_recommendation", {})}
+        
         # Return the formatted data for the new UI structure:
-        # [regulatory_output, web_results_output, final_recommendation_output, full_json_output, cra_raw_output, web_raw_output]
-        return regulatory_md, web_md, client_profile_md, rec_md, json.dumps(reference_data, indent=2), cra_raw_text, web_raw_text
+        # [regulatory_output, web_results_output, client_profile_md, final_recommendation_output, regulatory_raw, web_raw, client_profile_raw, final_rec_raw, cra_raw_output, web_raw_output]
+        return (regulatory_md, web_md, client_profile_md, rec_md, 
+                json.dumps(regulatory_raw_data, indent=2),
+                json.dumps(web_search_raw_data, indent=2), 
+                json.dumps(client_profile_raw_data, indent=2),
+                json.dumps(final_rec_raw_data, indent=2),
+                cra_raw_text, web_raw_text)
         
     except Exception as e:
         logging.error(f"Error generating reference: {e}")
         error_msg = f"Error: {str(e)}"
-        return error_msg, error_msg, error_msg, "{}", "", ""
+        return error_msg, error_msg, error_msg, error_msg, "{}", "{}", "{}", "{}", "", ""
 
 
 async def analyze_meeting_content(file_type: str, meeting_selection: str, progress=gr.Progress()):
@@ -347,32 +374,52 @@ with gr.Blocks(title="Wealth Management Assistant") as demo:
                         label="CRA Rules & Regulations with Sources",
                         value="*Generate reference material to see regulatory overview*"
                     )
+                    # Raw data for regulatory tab
+                    with gr.Accordion("Raw Data (JSON)", open=False):
+                        regulatory_raw_output = gr.Code(
+                            label="Regulatory Raw Data",
+                            language="json",
+                            lines=15
+                        )
                 
                 with gr.Tab("🌐 Web Search Results"):
                     web_results_output = gr.Markdown(
                         label="Current Web Information with URLs",
                         value="*Generate reference material to see web search results*"
                     )
+                    # Raw data for web search tab
+                    with gr.Accordion("Raw Data (JSON)", open=False):
+                        web_search_raw_output = gr.Code(
+                            label="Web Search Raw Data",
+                            language="json",
+                            lines=15
+                        )
 
                 with gr.Tab("💼 Client Profile Context"):
                     client_profile_output = gr.Markdown(
                         label="Client Profile Context",
                         value="*Generate reference material to see client profile context*"
                     )
+                    # Raw data for client profile tab
+                    with gr.Accordion("Raw Data (JSON)", open=False):
+                        client_profile_raw_output = gr.Code(
+                            label="Client Profile Raw Data",
+                            language="json",
+                            lines=15
+                        )
                 
                 with gr.Tab("💡 Final Recommendation"):
                     final_recommendation_output = gr.Markdown(
                         label="Synthesis & Recommendations",
                         value="*Generate reference material to see final recommendations*"
                     )
-            
-            # Raw data for debugging (collapsible) - moved inside Advisor Reference tab
-            with gr.Accordion("Raw Data (JSON)", open=False):
-                full_json_output = gr.Code(
-                    label="Full Reference Data",
-                    language="json",
-                    lines=15
-                )
+                    # Raw data for final recommendation tab
+                    with gr.Accordion("Raw Data (JSON)", open=False):
+                        final_rec_raw_output = gr.Code(
+                            label="Final Recommendation Raw Data",
+                            language="json",
+                            lines=15
+                        )
             
             # Add raw search results section - moved inside Advisor Reference tab
             with gr.Accordion("Raw Search Results", open=False):
@@ -396,7 +443,9 @@ with gr.Blocks(title="Wealth Management Assistant") as demo:
             advisor_generate_btn.click(
                 fn=generate_reference,
                 inputs=[advisor_situation_input],
-                outputs=[regulatory_output, web_results_output, client_profile_output, final_recommendation_output, full_json_output, cra_raw_output, web_raw_output]
+                outputs=[regulatory_output, web_results_output, client_profile_output, final_recommendation_output, 
+                        regulatory_raw_output, web_search_raw_output, client_profile_raw_output, final_rec_raw_output,
+                        cra_raw_output, web_raw_output]
             )
 
 

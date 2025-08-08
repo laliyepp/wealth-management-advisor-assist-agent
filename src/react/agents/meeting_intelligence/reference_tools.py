@@ -28,7 +28,7 @@ class ReferenceToolsAgent:
     def __init__(self):
         """Initialize the reference tools agent."""
         self.agent_manager = AgentManager()
-        self.runner = ReactRunner(tracing_disabled=True)
+        self.runner = ReactRunner(tracing_disabled=False)
         self.financial_tool: Optional[AsyncFinancialDataTool] = None
         self.initialized = False
     

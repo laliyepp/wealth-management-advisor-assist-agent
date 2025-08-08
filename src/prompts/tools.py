@@ -11,9 +11,10 @@ you must explain ticker symbol used in your request to the function
 
 CLIENT_PROFILE_INSTRUCTIONS = """
 Meeting content: {meeting_content}
-Analyze the meeting content to extract the client's first name.
+Analyze the meeting content to extract the client's name, only the first name.
 Once you have identified the first name, use it as input to the client profile tool 
 to retrieve the client's profile information from the database.
-Return a natural language description of the client based on the retrieved profile data.
+Return a natural language description of the client profile based on the retrieved data.
+Make sure starts with the client's first name, followed by a comma.
 If no first name can be identified or no profile is found, indicate this clearly in your response.
 """
