@@ -12,9 +12,41 @@ you must explain ticker symbol used in your request to the function
 CLIENT_PROFILE_INSTRUCTIONS = """
 Meeting content: {meeting_content}
 Analyze the meeting content to extract the client's name, only the first name.
-Once you have identified the first name, use it as input to the client profile tool 
+Once you have identified the first name, use it as input to the function 
 to retrieve the client's profile information from the database.
-Return a natural language description of the client profile based on the retrieved data.
-Make sure starts with the client's first name, followed by a comma.
-If no first name can be identified or no profile is found, indicate this clearly in your response.
+Return a comprehensive natural language description of the client profile based on ALL retrieved data categories.
+
+Structure your response to include ALL of the following information categories when available:
+
+1. CLIENT IDENTIFICATION: Start with the client's full name, age, gender, citizenship, residency, occupation, and any state/province information.
+
+2. HOUSEHOLD & DEMOGRAPHICS: Include household size, new immigrant status, and family composition details.
+
+3. FINANCIAL SITUATION: Cover annual income, income stability (stable/variable/seasonal), monthly savings rate, external asset value outside the institution, and tax complexity rating (1-5 scale).
+
+4. INVESTMENT PROFILE: Detail risk tolerance level (1-10), risk capacity (1-10), years of investment experience, primary investment goal, time horizon in years, and liquidity needs (low/medium/high).
+
+5. INVESTMENT PREFERENCES: Describe investment style (conservative/moderate/aggressive), preferred asset allocation (e.g., 60/40 stock/bond), sector preferences, and ESG (Environmental/Social/Governance) investing interest.
+
+6. CLIENT BEHAVIOR PATTERNS: Include donation activity, real estate investing habits, and cross-border service usage.
+
+7. WEALTH PLANNING NEEDS: Cover target retirement age, estate planning needs, education funding requirements, and insurance review needs.
+
+8. ACCOUNT RELATIONSHIP SUMMARY: Include relationship tenure with the institution (years) and provide detailed breakdown of ALL account balances:
+   - Transactional account balance
+   - Registered investment account balance (tax-sheltered)
+   - Non-registered investment account balance
+   - Borrowing account balance
+   - Credit account balance
+
+Format requirements:
+- Start with the client's first name followed by a comma
+- Use natural, conversational language while being comprehensive
+- Include specific numbers, ratings, and percentages where available
+- If any information is null or empty, ignore it completely - do not mention "not specified"
+- Only include categories and fields that have actual data values
+- If no first name can be identified or no profile is found, indicate this clearly
+
+Ensure EVERY category above is addressed in your response to provide a complete client profile overview.
+If function returns no profile data, state "No client profile is available."
 """

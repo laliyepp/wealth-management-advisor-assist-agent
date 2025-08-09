@@ -11,46 +11,69 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ClientProfile:
-    """Client profile data structure."""
-    mt_transcript: str
-    first_name: str
-    last_name: str
-    age: int
-    gender: str
-    citizenship: str
-    residency: str
-    state_province: Optional[str]
-    household_num: int
-    new_immigrant: str
-    occupation: str
-    tenure: int
-    t_bal: Optional[float]
-    i_bal_reg: Optional[float]
-    i_bal_non_reg: Optional[float]
-    b_bal: Optional[float]
-    c_bal: Optional[float]
-    ext_asset_value: Optional[float]
-    crossborder_ind: str
-    donation_ind: Optional[str]
-    re_ind: str
-    tax_complexity: int
-    risk_tolerance: int
-    risk_capacity: int
-    investment_exp: int
-    primary_goal: str
-    time_horizon: int
-    annual_income: float
-    income_stability: str
-    savings_rate: Optional[float]
-    liquidity_needs: str
-    investment_style: str
-    asset_alloc_pref: str
-    sector_pref: Optional[str]
-    esg_interest: Optional[str]
-    retirement_age: int
-    estate_planning: Optional[str]
-    education_fund: str
-    insurance_review: Optional[str]
+    """Client profile data structure focused on client-specific information.
+    
+    Contains client demographics, financial situation, preferences, and planning needs
+    while excluding internal account/system specific data.
+    """
+    # SOURCE DOCUMENTATION
+    mt_transcript: str  # meeting transcript file name
+    
+    # CLIENT IDENTIFICATION & KYC
+    first_name: str  # client's first name
+    last_name: str  # client's last name
+    age: int  # client's age
+    gender: str  # client's gender (M/F/NB)
+    citizenship: str  # client's citizenship
+    residency: str  # country of tax residency
+    state_province: Optional[str]  # state/province of residence
+    
+    # HOUSEHOLD & DEMOGRAPHICS
+    household_num: int  # number of families inside client's household
+    new_immigrant: str  # new immigrant status
+    occupation: str  # client's primary occupation
+    
+    # CLIENT WEALTH & EXTERNAL ASSETS
+    ext_asset_value: Optional[float]  # client's asset value outside our institution
+    annual_income: float  # total annual income
+    income_stability: str  # income stability (stable/variable/seasonal)
+    savings_rate: Optional[float]  # monthly savings capacity
+    
+    # CLIENT PREFERENCES & BEHAVIOR
+    donation_ind: Optional[str]  # client donates or not
+    re_ind: str  # client invests in real-estate or not
+    crossborder_ind: str  # client using crossborder service or not
+    
+    # TAX SITUATION
+    tax_complexity: int  # tax complications rating: 1(easy) - 5(hard)
+    
+    # RISK PROFILE & INVESTMENT OBJECTIVES
+    risk_tolerance: int  # risk tolerance level (1-10)
+    risk_capacity: int  # financial capacity for risk (1-10)
+    investment_exp: int  # years of investment experience
+    primary_goal: str  # primary investment objective
+    time_horizon: int  # investment time horizon (years)
+    liquidity_needs: str  # liquidity requirement level (low/med/high)
+    
+    # INVESTMENT PREFERENCES
+    investment_style: str  # conservative/moderate/aggressive
+    asset_alloc_pref: str  # preferred stock/bond allocation (e.g. 60/40)
+    sector_pref: Optional[str]  # preferred sectors (comma-separated)
+    esg_interest: Optional[str]  # ESG investing interest (y/n)
+    
+    # WEALTH PLANNING NEEDS
+    retirement_age: int  # target retirement age
+    estate_planning: Optional[str]  # estate planning needs (y/n)
+    education_fund: str  # education funding needed (y/n)
+    insurance_review: Optional[str]  # insurance review needed (y/n)
+    
+    # ACCOUNT RELATIONSHIP (minimal institutional data)
+    tenure: int  # client's tenure with our institution (years)
+    t_bal: Optional[float]  # client's transactional account balance
+    i_bal_reg: Optional[float]  # invest-acc balance in tax shelter
+    i_bal_non_reg: Optional[float]  # invest-acc balance in non-tax shelter
+    b_bal: Optional[float]  # client's borrowing account balance
+    c_bal: Optional[float]  # client's credit account balance
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "ClientProfile":
@@ -172,52 +195,66 @@ def get_client_profile(client_first_name: str) -> Optional[Dict[str, Any]]:
         client_first_name: The name of the client to search for
         
     Returns:
-        Dictionary containing client profile data if found, None otherwise
+        Dictionary containing client profile data focused on client-specific information, None otherwise
     """
     profile = client_db.get_profile_by_first_name(client_first_name)
     if profile:
-        # Convert to dictionary for JSON serialization
+        # Convert to client-focused dictionary
         return {
-            'client_name': profile.full_name,
-            'age': profile.age,
-            'gender': profile.gender,
-            'citizenship': profile.citizenship,
-            'residency': profile.residency,
-            'state_province': profile.state_province,
-            'occupation': profile.occupation,
-            'annual_income': profile.annual_income,
-            'investment_balances': {
-                'total_balance': profile.t_bal,
-                'registered_investments': profile.i_bal_reg,
-                'non_registered_investments': profile.i_bal_non_reg,
-                'bank_balance': profile.b_bal,
-                'cash_balance': profile.c_bal,
-                'external_assets': profile.ext_asset_value
+            'client_identification': {
+                'full_name': profile.full_name,
+                'age': profile.age,
+                'gender': profile.gender,
+                'citizenship': profile.citizenship,
+                'residency': profile.residency,
+                'state_province': profile.state_province,
+                'occupation': profile.occupation
             },
-            'risk_profile': {
+            'household_info': {
+                'household_size': profile.household_num,
+                'new_immigrant_status': profile.new_immigrant
+            },
+            'financial_situation': {
+                'annual_income': profile.annual_income,
+                'income_stability': profile.income_stability,
+                'monthly_savings_rate': profile.savings_rate,
+                'external_asset_value': profile.ext_asset_value,
+                'tax_complexity_rating': profile.tax_complexity
+            },
+            'investment_profile': {
                 'risk_tolerance': profile.risk_tolerance,
                 'risk_capacity': profile.risk_capacity,
-                'investment_experience': profile.investment_exp
-            },
-            'financial_goals': {
+                'investment_experience_years': profile.investment_exp,
                 'primary_goal': profile.primary_goal,
-                'time_horizon': profile.time_horizon,
-                'retirement_age': profile.retirement_age
+                'time_horizon_years': profile.time_horizon,
+                'liquidity_needs': profile.liquidity_needs
             },
-            'preferences': {
+            'investment_preferences': {
                 'investment_style': profile.investment_style,
-                'asset_allocation': profile.asset_alloc_pref,
-                'sector_preference': profile.sector_pref,
+                'asset_allocation_preference': profile.asset_alloc_pref,
+                'sector_preferences': profile.sector_pref,
                 'esg_interest': profile.esg_interest
             },
-            'planning_needs': {
-                'estate_planning': profile.estate_planning,
-                'education_fund': profile.education_fund,
-                'insurance_review': profile.insurance_review
+            'client_behavior': {
+                'donation_activity': profile.donation_ind,
+                'real_estate_investing': profile.re_ind,
+                'crossborder_services': profile.crossborder_ind
             },
-            'tax_complexity': profile.tax_complexity,
-            'savings_rate': profile.savings_rate,
-            'liquidity_needs': profile.liquidity_needs,
-            'meeting_transcript': profile.mt_transcript
+            'planning_needs': {
+                'target_retirement_age': profile.retirement_age,
+                'estate_planning_needed': profile.estate_planning,
+                'education_fund_needed': profile.education_fund,
+                'insurance_review_needed': profile.insurance_review
+            },
+            'account_summary': {
+                'relationship_tenure_years': profile.tenure,
+                'account_balances': {
+                    'transactional': profile.t_bal,
+                    'registered_investments': profile.i_bal_reg,
+                    'non_registered_investments': profile.i_bal_non_reg,
+                    'borrowing': profile.b_bal,
+                    'credit': profile.c_bal
+                }
+            }
         }
     return None
