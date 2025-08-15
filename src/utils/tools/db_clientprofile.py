@@ -205,7 +205,7 @@ def get_client_profile(client_first_name: str) -> Optional[Dict[str, Any]]:
     # Lazy load client profiles on first call
     if not client_db.is_loaded():
         # Default data file path - you can modify this path as needed
-        data_file = "data/client_profiles.jsonl"
+        data_file = "data/profile/client_profile.jsonl"
         client_db.load_from_jsonl(data_file)
     
     profile = client_db.get_profile_by_first_name(client_first_name)
