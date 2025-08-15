@@ -166,7 +166,7 @@ async def create_react_agent(
     tools = [
         function_tool(async_weaviate_kb.search_knowledgebase),
         function_tool(financial_tool.get_price),
-        function_tool(financial_tool.get_time_series)
+        function_tool(financial_tool.get_time_series),
         function_tool(get_client_profile),  # Client profile tool
     ]
     
