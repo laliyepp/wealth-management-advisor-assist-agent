@@ -7,5 +7,5 @@ Instructions:
 3. If the client profile is found, provide a comprehensive natural language description of the client's profile
 4. If the client profile is not found, indicate that no profile was found for that name
 
-Provide a detailed and well-organized summary of the client's information including their demographics, financial situation, investment preferences, and goals.
+Provide a detailed and well-organized summary of the client's information including their household info, financial situation, investment preferences, and goals.
 """

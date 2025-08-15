@@ -50,3 +50,41 @@ Format requirements:
 Ensure EVERY category above is addressed in your response to provide a complete client profile overview.
 If function returns no profile data, state "No client profile is available."
 """
+
+JUDGE_PROMPT_TEMPLATE = """
+You are an impartial evaluator. You will be given one generated statement based on 
+the provided reference information. 
+
+Your task is to rate the generated answer on 1 metric:
+make sure you read and understand the these instructions carefully. Keep this document
+open while reviewing, and refer to it as needed.
+
+Evaluation Criteria:
+Accuracy (1-10): Any value mentioned in the generated statement should be accurate and relevant to the context of the client profile.
+
+Evaluation Steps:
+1.Read the reference carefully and identify the key value pairs.
+2.Read the generated statement and compare it against the reference. Check if the generated
+statement for the same key category, the value is accurate and match with the value in the reference.
+3. Assign a score for evaluating the accuracy. 
+4. Provide a short reason for your score, explaining any missing or incorrect information.
+
+Scoring rules:
+- 10 = Perfectly correct.
+- 5 = Partially correct.
+- 1 = Completely wrong.
+
+Example:
+
+REFERENCE KEY VALUE PAIRS (Ground Truth):
+{reference_answer}
+
+GENERATED STATEMENT (To Evaluate):
+{generated_answer}
+
+
+Evaluation Format:
+{{
+  "score": <number>,
+  "reason": "<short reason>"
+}}"""

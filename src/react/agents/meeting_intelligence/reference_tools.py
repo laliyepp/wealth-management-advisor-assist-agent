@@ -5,7 +5,7 @@ import json
 import logging
 from typing import Any, Dict, Optional
 
-from agents import Agent, OpenAIChatCompletionsModel, function_tool
+from agents import Agent, ModelSettings, OpenAIChatCompletionsModel, function_tool
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 
@@ -19,7 +19,7 @@ load_dotenv(verbose=True)
 
 logger = logging.getLogger(__name__)
 
-AGENT_LLM_NAME = "gemini-2.5-flash"
+AGENT_LLM_NAME = "gemini-2.5-pro"
 
 
 class ReferenceToolsAgent:
@@ -92,6 +92,10 @@ Always:
                 model=AGENT_LLM_NAME, 
                 openai_client=async_openai_client
             ),
+            model_settings=ModelSettings(
+                temperature=0.0,
+                max_tokens=2048,
+                top_p=1.0)
         )
         
         # Initialize with the agent manager

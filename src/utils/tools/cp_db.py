@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 class ClientProfile:
     """Client profile data structure focused on client-specific information.
     
-    Contains client demographics, financial situation, preferences, and planning needs
+    Contains client personal info, financial situation, preferences, and planning needs
     while excluding internal account/system specific data.
     """
     # SOURCE DOCUMENTATION
@@ -27,11 +27,11 @@ class ClientProfile:
     citizenship: str  # client's citizenship
     residency: str  # country of tax residency
     state_province: Optional[str]  # state/province of residence
+    occupation: str  # client's primary occupation
     
-    # HOUSEHOLD & DEMOGRAPHICS
+    # HOUSEHOLD INFO
     household_num: int  # number of families inside client's household
     new_immigrant: str  # new immigrant status
-    occupation: str  # client's primary occupation
     
     # CLIENT WEALTH & EXTERNAL ASSETS
     ext_asset_value: Optional[float]  # client's asset value outside our institution
